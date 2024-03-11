@@ -12,7 +12,7 @@ logger.setLevel(log_level)
 
 # src=f'/data/ruanjh/doctrans_data/iwslt2017-en-de/concatenated_en2de_test_en.txt'
 # mt=f'{config.vdb_path}/{file}/llama_nmt_knnlm_{file}_output.en'
-mt=f'/data/ruanjh/best_training_method/iwslt17/mt_mamba.de'
+mt=f'/data/ruanjh/best_training_method/iwslt17/mt_mamba_chat.de'
 ref=f'/data/ruanjh/best_training_method/iwslt17/test.de'
 
 # src_data=open(src).readlines()

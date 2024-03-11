@@ -37,7 +37,8 @@ def get_pred(rank,out_path,data,dict,model_dir):
     model, tokenizer = load_model_and_tokenizer(device,model_dir)
     dataset=TestDataset(data,tokenizer)
     collator= DataCollatorForSeq2Seq(tokenizer,model=model,padding=True)
-    dataloader=tqdm(DataLoader(dataset,8,collate_fn=collator))
+    
+    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator))
     result=[]
     for input in dataloader:
         input.to(device)
@@ -47,9 +48,13 @@ def get_pred(rank,out_path,data,dict,model_dir):
                     num_beams=5,
                     do_sample=False,
                     temperature=1.0,
-                    max_new_tokens=512,
+                    max_new_tokens=256,
                 )
-        pred = tokenizer.batch_decode(output, skip_special_tokens=True)
+
+        temp_result=tokenizer.batch_decode(output,skip_special_tokens=True)
+        print('temp_result',[temp_result])
+        pred = [x.split('\nGerman: ')[-1] for x in temp_result]
+        print(pred)
         result+=pred
     dict[f'{rank}']=result
     
@@ -65,8 +70,8 @@ if __name__=='__main__':
     mp.set_start_method('spawn', force=True)
     data_all = [data_sample for data_sample in test_data]
     data_subsets = split_list(data_all,world_size)
-    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba.de'
-    model_dir='/data/ruanjh/mamba-translate/checkpoint-3700'
+    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba-2_8b.de'
+    model_dir='/data/ruanjh/mamba-translate-2.8b/checkpoint-850'
     processes = []
     manager = mp.Manager()
     dict = manager.dict()
@@ -80,4 +85,4 @@ if __name__=='__main__':
     with open(out_path, "w", encoding="utf-8") as f:
         for rank in range(world_size):
             for r in dict[f'{rank}']:
-                f.write(r+'\n')
+                f.write(r.replace('\n','\\n')+'\n')

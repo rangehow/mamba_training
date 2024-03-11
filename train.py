@@ -4,7 +4,7 @@ import torch
 from dataset import MyDataset
 import json
 from plot import plot_loss
-model_dir='/data/ruanjh/mamba-370m-hf'
+model_dir='/data/ruanjh/mamba-2.8b-hf/AI-ModelScope/mamba-2___8b-hf'
 output_dir='./mamba-translate'
 tokenizer=AutoTokenizer.from_pretrained(model_dir,padding_side='left')
 # print(len(tokenizer),tokenizer.vocab_size)
@@ -35,7 +35,8 @@ trainer = Trainer(
         args=TrainingArguments(
             overwrite_output_dir =True,
             remove_unused_columns =False,
-            gradient_accumulation_steps=8,
+            gradient_accumulation_steps=16,
+            gradient_checkpointing=True,
             #------------------------------
             evaluation_strategy='steps',
             eval_delay=100,
@@ -52,7 +53,7 @@ trainer = Trainer(
             # auto_find_batch_size=True,
             per_device_train_batch_size=4,
             per_device_eval_batch_size =4,
-            output_dir="/data/ruanjh/mamba-translate",
+            output_dir="/data/ruanjh/mamba-translate-2.8b",
             logging_steps=5,
             bf16=True,
             prediction_loss_only=True,
@@ -63,6 +64,6 @@ trainer = Trainer(
         data_collator=collator,
     )
 
-trainer.train(resume_from_checkpoint=True,)
+trainer.train(resume_from_checkpoint=True)
 
 plot_loss(output_dir)
