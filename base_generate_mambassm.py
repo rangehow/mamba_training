@@ -1,25 +1,14 @@
-from transformers import MambaForCausalLM,AutoTokenizer
 import json
-from transformers import BartConfig,MambaForCausalLM,Seq2SeqTrainer,DataCollatorForSeq2Seq,AutoTokenizer,TrainingArguments,Seq2SeqTrainingArguments,BartTokenizer
-from torch.utils.data import Dataset,DataLoader
-import datasets
 import torch
-import torch.distributed as dist
-import torch.multiprocessing as mp
-from dataset import TestDataset
 from tqdm import tqdm
-# params = list(model.parameters())
-# k = 0
-# for i in params:
-#     l = 1
-#     print("该层的结构：" + str(list(i.size())))
-#     for j in i.size():
-#         l *= j
-#     print("该层参数和：" + str(l))
-#     k = k + l
-# print("总参数数量和：" + str(k))
-
+from transformers import AutoTokenizer
+from mamba_ssm.models.mixer_seq_simple import MambaLMHeadModel
+import torch.multiprocessing as mp
+from dataset import TestDataset,MyDataset
+from torch.utils.data import DataLoader
 import json
+
+from transformers import DataCollatorForSeq2Seq
 with open('/data/ruanjh/best_training_method/iwslt17/test.json') as f:
     test_data=json.load(f)
     
@@ -27,28 +16,31 @@ with open('/data/ruanjh/best_training_method/iwslt17/test.json') as f:
 
 
 def load_model_and_tokenizer(device,model_dir):
-    model=MambaForCausalLM.from_pretrained(model_dir,torch_dtype='auto',)
-    model.to(device)
-    tokenizer=AutoTokenizer.from_pretrained(model_dir,padding_side='left')
+    tokenizer = AutoTokenizer.from_pretrained("/data/ruanjh/mamba-chat")
+    tokenizer.eos_token = "<|endoftext|>"
+    tokenizer.pad_token = tokenizer.eos_token
+    model = MambaLMHeadModel.from_pretrained(
+        "/data/ruanjh/mamba-chat",device=device, dtype=torch.float16
+    )
     return model,tokenizer
 
-def get_pred(rank,out_path,data,dict,model_dir):
+def get_pred(rank,data,dictt,model_dir):
     device = torch.device(f'cuda:{rank}')
     model, tokenizer = load_model_and_tokenizer(device,model_dir)
     dataset=TestDataset(data,tokenizer)
     collator= DataCollatorForSeq2Seq(tokenizer,model=model,padding=True)
     
-    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator))
+    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator,pin_memory=True,num_workers=4))
     result=[]
     for input in dataloader:
         input.to(device)
         output = model.generate(
                     input_ids=input['input_ids'],
-                    attention_mask=input['attention_mask'],
-                    num_beams=5,
-                    do_sample=False,
-                    temperature=1.0,
-                    max_new_tokens=256,
+                    max_length=256,
+                    temperature=0.9,
+                    top_p=0.7,
+                    eos_token_id=tokenizer.eos_token_id,
+                    cg=True,
                 )
 
         temp_result=tokenizer.batch_decode(output,skip_special_tokens=True)
@@ -71,13 +63,13 @@ if __name__=='__main__':
     mp.set_start_method('spawn', force=True)
     data_all = [data_sample for data_sample in test_data]
     data_subsets = split_list(data_all,world_size)
-    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba-2_8b.de'
-    model_dir='/data/ruanjh/mamba-2.8b-hf'
+    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba_chat-lora2.8bckpt900.de'
+    model_dir='mamba-2.8b-lorackpt900'
     processes = []
     manager = mp.Manager()
     dict = manager.dict()
     for rank in range(world_size):
-        p = mp.Process(target=get_pred, args=(rank,out_path,data_subsets[rank],dict,model_dir))
+        p = mp.Process(target=get_pred, args=(rank,data_subsets[rank],dict,model_dir))
         p.start()
         processes.append(p)
     for p in processes:
@@ -86,4 +78,4 @@ if __name__=='__main__':
     with open(out_path, "w", encoding="utf-8") as f:
         for rank in range(world_size):
             for r in dict[f'{rank}']:
-                f.write(r.replace('\n','\\n')+'\n')
+                f.write(r+'\n')

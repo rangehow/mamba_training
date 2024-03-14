@@ -43,4 +43,4 @@ def plot_loss(save_dictionary: os.PathLike, keys: Optional[List[str]] = ["loss",
         plt.savefig(os.path.join(save_dictionary, "training_{}.png".format(key)), format="png", dpi=100)
         print("Figure saved:", os.path.join(save_dictionary, "training_{}.png".format(key)))
         
-# plot_loss('/data/ruanjh/best_training_method/NAIVE_BART/checkpoint-4000')
+# plot_loss('/data/ruanjh/mamba-translate-2.8b-lora/checkpoint-4700')

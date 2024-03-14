@@ -51,7 +51,7 @@ def get_pred(rank,data,dictt,model_dir):
             temperature=0.9,
             top_p=0.7,
             eos_token_id=tokenizer.eos_token_id,
-            # cg=True,
+            cg=True,
         )
         decoded = tokenizer.batch_decode(out, skip_special_tokens=True)[0].split("<|assistant|>\n")[-1]
         decoded=decoded.replace('\n','\\n')
@@ -70,8 +70,8 @@ if __name__=='__main__':
     mp.set_start_method('spawn', force=True)
     data_all = [data_sample for data_sample in test_data]
     data_subsets = split_list(data_all,world_size)
-    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba_chat.de'
-    model_dir='/data/ruanjh/mamba-chat'
+    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba_chat-lora2.8bckpt900.de'
+    model_dir='mamba-2.8b-lorackpt900'
     processes = []
     manager = mp.Manager()
     dict = manager.dict()

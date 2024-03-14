@@ -8,6 +8,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from dataset import TestDataset
 from tqdm import tqdm
+from peft import PeftModelForCausalLM
 # params = list(model.parameters())
 # k = 0
 # for i in params:
@@ -26,19 +27,23 @@ with open('/data/ruanjh/best_training_method/iwslt17/test.json') as f:
 
 
 
-def load_model_and_tokenizer(device,model_dir):
-    model=MambaForCausalLM.from_pretrained(model_dir,torch_dtype='auto',)
+def load_model_and_tokenizer(device,model_dir,peft_model_id):
+    base_model = MambaForCausalLM.from_pretrained(model_dir,torch_dtype='auto')
+    
+    model = PeftModelForCausalLM.from_pretrained(base_model, peft_model_id)
+    model.eval()
+    # model=MambaForCausalLM.from_pretrained(model_dir,torch_dtype='auto',)
     model.to(device)
     tokenizer=AutoTokenizer.from_pretrained(model_dir,padding_side='left')
     return model,tokenizer
 
-def get_pred(rank,out_path,data,dict,model_dir):
+def get_pred(rank,out_path,data,dict,model_dir,peft_model_id):
     device = torch.device(f'cuda:{rank}')
-    model, tokenizer = load_model_and_tokenizer(device,model_dir)
+    model, tokenizer = load_model_and_tokenizer(device,model_dir,peft_model_id)
     dataset=TestDataset(data,tokenizer)
     collator= DataCollatorForSeq2Seq(tokenizer,model=model,padding=True)
     
-    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator))
+    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator,pin_memory=True,num_workers=4))
     result=[]
     for input in dataloader:
         input.to(device)
@@ -56,7 +61,7 @@ def get_pred(rank,out_path,data,dict,model_dir):
         pred = [x.split('\nGerman: ')[-1] for x in temp_result]
         # print(pred)
         result+=pred
-        
+        # print(temp_result)
     dict[f'{rank}']=result
     
     # dist.destroy_process_group()
@@ -71,13 +76,14 @@ if __name__=='__main__':
     mp.set_start_method('spawn', force=True)
     data_all = [data_sample for data_sample in test_data]
     data_subsets = split_list(data_all,world_size)
-    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba-2_8b.de'
+    out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba-2_8b-lora.de'
     model_dir='/data/ruanjh/mamba-2.8b-hf'
+    peft_model_id = "/data/ruanjh/mamba-translate-2.8b-lora/checkpoint-4700"
     processes = []
     manager = mp.Manager()
     dict = manager.dict()
     for rank in range(world_size):
-        p = mp.Process(target=get_pred, args=(rank,out_path,data_subsets[rank],dict,model_dir))
+        p = mp.Process(target=get_pred, args=(rank,out_path,data_subsets[rank],dict,model_dir,peft_model_id))
         p.start()
         processes.append(p)
     for p in processes:

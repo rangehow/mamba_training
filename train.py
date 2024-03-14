@@ -4,11 +4,11 @@ import torch
 from dataset import MyDataset
 import json
 from plot import plot_loss
-model_dir='/data/ruanjh/mamba-2.8b-hf/AI-ModelScope/mamba-2___8b-hf'
+from peft import LoraConfig,get_peft_model
+model_dir='/data/ruanjh/mamba-2.8b-hf/'
 output_dir='./mamba-translate'
 tokenizer=AutoTokenizer.from_pretrained(model_dir,padding_side='left')
-# print(len(tokenizer),tokenizer.vocab_size)
-# exit()
+
 model=MambaForCausalLM.from_pretrained(model_dir,torch_dtype=torch.bfloat16)
 
 collator=DataCollatorForSeq2Seq(tokenizer,model)
@@ -27,6 +27,16 @@ eval_dataset=MyDataset(eval_data,tokenizer)
 #     print(d)
 #     exit()
 
+lora_config =  LoraConfig(
+        r=64,
+        target_modules=["x_proj", "embeddings", "in_proj", "out_proj"],
+        task_type="CAUSAL_LM",
+        bias="none",
+        use_rslora=True,
+)
+# model.add_adapter(lora_config)
+model = get_peft_model(model, lora_config)
+
 trainer = Trainer(
         model=model,
         train_dataset=train_dataset,
@@ -36,7 +46,7 @@ trainer = Trainer(
             overwrite_output_dir =True,
             remove_unused_columns =False,
             gradient_accumulation_steps=16,
-            gradient_checkpointing=True,
+            # gradient_checkpointing=True,
             #------------------------------
             evaluation_strategy='steps',
             eval_delay=100,
@@ -51,19 +61,23 @@ trainer = Trainer(
             learning_rate=2e-3,
             num_train_epochs=30,
             # auto_find_batch_size=True,
-            per_device_train_batch_size=4,
-            per_device_eval_batch_size =4,
-            output_dir="/data/ruanjh/mamba-translate-2.8b",
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size =8,
+            output_dir="/data/ruanjh/mamba-translate-2.8b-lora",
             logging_steps=5,
             bf16=True,
             prediction_loss_only=True,
             lr_scheduler_type="cosine",
-            
+            # torch_compile=True,
+            # torch_compile_backend='inductor',
+            # torch_compile_mode='max-autotune',
+            optim='adamw_apex_fused',
             # save_safetensors =False,
         ),
         data_collator=collator,
     )
 
-trainer.train(resume_from_checkpoint=True)
+trainer.train()
 
 plot_loss(output_dir)
+
