@@ -43,7 +43,7 @@ def get_pred(rank,out_path,data,dict,model_dir,peft_model_id):
     dataset=TestDataset(data,tokenizer)
     collator= DataCollatorForSeq2Seq(tokenizer,model=model,padding=True)
     
-    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator,pin_memory=True,num_workers=4))
+    dataloader=tqdm(DataLoader(dataset,8,collate_fn=collator,pin_memory=True,num_workers=4))
     result=[]
     for input in dataloader:
         input.to(device)
@@ -78,7 +78,7 @@ if __name__=='__main__':
     data_subsets = split_list(data_all,world_size)
     out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba-2_8b-lora.de'
     model_dir='/data/ruanjh/mamba-2.8b-hf'
-    peft_model_id = "/data/ruanjh/mamba-translate-2.8b-lora/checkpoint-4700"
+    peft_model_id = "/data/ruanjh/mamba-translate-2.8b-lora/checkpoint-6650"
     processes = []
     manager = mp.Manager()
     dict = manager.dict()
