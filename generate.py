@@ -20,8 +20,7 @@ from tqdm import tqdm
 # print("总参数数量和：" + str(k))
 
 import json
-with open('/data/ruanjh/best_training_method/iwslt17/test.json') as f:
-    test_data=json.load(f)
+
     
 
 
@@ -38,7 +37,7 @@ def get_pred(rank,out_path,data,dict,model_dir):
     dataset=TestDataset(data,tokenizer)
     collator= DataCollatorForSeq2Seq(tokenizer,model=model,padding=True)
     
-    dataloader=tqdm(DataLoader(dataset,2,collate_fn=collator))
+    dataloader=tqdm(DataLoader(dataset,8,collate_fn=collator,pin_memory=True,num_workers=4))
     result=[]
     for input in dataloader:
         input.to(device)
@@ -69,10 +68,15 @@ if __name__=='__main__':
 
     world_size = torch.cuda.device_count()
     mp.set_start_method('spawn', force=True)
+    data_dir='/data/ruanjh/wmt22'
+    # with open(data_dir) as f:
+    #     test_data=json.load(f)
+    with open(data_dir) as f:
+        test_data=f.readlines()
     data_all = [data_sample for data_sample in test_data]
     data_subsets = split_list(data_all,world_size)
     out_path='/data/ruanjh/best_training_method/iwslt17/mt_mamba-2_8b.de'
-    model_dir='/data/ruanjh/mamba-2.8b-hf'
+    model_dir='/data/ruanjh/mamba-translate-2.8b-ckpt6800lora'
     processes = []
     manager = mp.Manager()
     dict = manager.dict()

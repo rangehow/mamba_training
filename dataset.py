@@ -31,7 +31,10 @@ class MyDataset(Dataset):
 
 class TestDataset(Dataset):
     def __init__(self, data, tokenizer):
-        src = ["Translate this from English into German:\nEnglish: "+d["en"]+"\nGerman: " for d in data]
+        try:
+            src = ["Translate this from English into German:\nEnglish: "+d["en"]+"\nGerman: " for d in data]
+        except:
+            src = ["Translate this from English into German:\nEnglish: "+d+"\nGerman: " for d in data]
         input_id = tokenizer(src)
         self.data = {
             "input_ids": input_id.input_ids,
@@ -41,13 +44,11 @@ class TestDataset(Dataset):
     def __getitem__(self, index):
         
         return {
-            # 1是pad token,我拿来当源语言目标语言分隔符了,虽然我感觉用一些固定的描述也可以
             "input_ids": self.data["input_ids"][index],
         }
 
     def __len__(self):
-        # print(len(self.data['input_ids']))
-        return len(self.data["input_ids"])
+          return len(self.data["input_ids"])
     
 class ChatTestDataset(Dataset):
     def __init__(self, data, tokenizer):
